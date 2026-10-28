@@ -6,11 +6,7 @@ export interface PortalSessionUser {
 }
 
 /**
- * Architectural visibility states defined by the BLACKTOWER OS™ specification:
- * - 'approved_showcase': Explicitly approved by the owner for public/main BLACKTOWER OS showcase display (currently only BLACKTOWER VAULT™).
- * - 'pending_owner_review': Existing projects whose publication status has not yet been finalized by the owner.
- * - 'internal_only': Internal Notion workspaces, planning systems, and backend architecture records.
- * - 'vault_subsystem': Internal security subsystems & engineering test suites belonging to BLACKTOWER VAULT™ (not standalone products).
+ * Architectural visibility states defined by the BLACKTOWER OS™ specification.
  */
 export type PortalProjectVisibility =
   | 'approved_showcase'
@@ -18,11 +14,6 @@ export type PortalProjectVisibility =
   | 'internal_only'
   | 'vault_subsystem';
 
-/**
- * Explicit concept classification required by Section 9:
- * Clearly distinguish PUBLIC SHOWCASE PROJECT, PRODUCT FEATURE, SECURITY SUBSYSTEM,
- * ENGINEERING TEST, PENDING OWNER REVIEW, and INTERNAL WORKSPACE.
- */
 export type PortalCompletionStatus =
   | 'COMPLETED'
   | 'SECURITY_SUBSYSTEM'
@@ -80,18 +71,9 @@ export interface PortalWorkspaceItem {
   displayOrder: number;
 }
 
-/**
- * Preserved internal Notion Command Centre URL.
- * Stored on the server and exposed only inside the authenticated Internal Workspaces area.
- */
 export const COMMAND_CENTRE_NOTION_URL =
   'https://www.notion.so/3f79e06eef388184a546d2db5a108857';
 
-/**
- * Internal capabilities & subsystems belonging to BLACKTOWER VAULT™.
- * Displayed inside the BLACKTOWER VAULT™ product detail drawer—never promoted
- * as separate standalone projects on the main showcase.
- */
 export const BLACKTOWER_VAULT_INTERNAL_CAPABILITIES: VaultInternalCapability[] = [
   {
     id: 'cap-vault-records',
@@ -145,26 +127,7 @@ export const BLACKTOWER_VAULT_INTERNAL_CAPABILITIES: VaultInternalCapability[] =
   },
 ];
 
-/**
- * Authoritative BLACKTOWER OS™ catalog.
- *
- * 1. APPROVED SHOWCASE PRODUCT (visibility === 'approved_showcase'):
- *    ONLY BLACKTOWER VAULT™ is approved for display on the main showcase.
- *
- * 2. VAULT SUBSYSTEMS (visibility === 'vault_subsystem'):
- *    Preserved in the database as internal subsystems/test suites of BLACKTOWER VAULT™;
- *    never displayed as separate products on the main showcase.
- *
- * 3. FUTURE PROJECTS PENDING OWNER REVIEW (visibility === 'pending_owner_review'):
- *    Preserved without fabricating completion or public status until explicit owner review.
- *
- * 4. INTERNAL WORKSPACES (visibility === 'internal_only'):
- *    Preserved Notion links and internal planning workspaces, gated by server-side authorization.
- */
 export const PORTAL_WORKSPACES: PortalWorkspaceItem[] = [
-  // =========================================================================
-  // 1. PRIMARY APPROVED SHOWCASE PRODUCT (SOLE PUBLIC SHOWCASE ITEM)
-  // =========================================================================
   {
     id: 'blacktower-vault',
     indexLabel: '01',
@@ -189,10 +152,6 @@ export const PORTAL_WORKSPACES: PortalWorkspaceItem[] = [
     iconKey: 'lock',
     displayOrder: 1,
   },
-
-  // =========================================================================
-  // 2. BLACKTOWER VAULT™ INTERNAL SUBSYSTEMS (NOT STANDALONE PRODUCTS)
-  // =========================================================================
   {
     id: 'screen-exposure-engine',
     indexLabel: 'S1',
@@ -247,10 +206,6 @@ export const PORTAL_WORKSPACES: PortalWorkspaceItem[] = [
     iconKey: 'cpu',
     displayOrder: 4,
   },
-
-  // =========================================================================
-  // 3. FUTURE PROJECTS — PENDING OWNER REVIEW (DO NOT MARK PUBLIC OR COMPLETED)
-  // =========================================================================
   {
     id: 'nexus-tracker',
     indexLabel: 'P1',
@@ -285,10 +240,6 @@ export const PORTAL_WORKSPACES: PortalWorkspaceItem[] = [
     iconKey: 'briefcase',
     displayOrder: 8,
   },
-
-  // =========================================================================
-  // 4. INTERNAL WORKSPACES & BACKEND DOCUMENTATION (INTERNAL ONLY)
-  // =========================================================================
   {
     id: 'daily-tasks',
     indexLabel: '01',
@@ -386,21 +337,10 @@ export function validatePortalEmail(rawEmail: unknown): {
   error?: string;
 } {
   if (typeof rawEmail !== 'string') {
-    return {
-      valid: false,
-      normalizedEmail: '',
-      error: 'Enter a valid email address.',
-    };
+    return { valid: false, normalizedEmail: '', error: 'Enter a valid email address.' };
   }
   const trimmed = rawEmail.trim().toLowerCase();
-  if (!trimmed) {
-    return {
-      valid: false,
-      normalizedEmail: '',
-      error: 'Enter a valid email address.',
-    };
-  }
-  if (trimmed.length > 255 || !EMAIL_PATTERN.test(trimmed)) {
+  if (!trimmed || trimmed.length > 255 || !EMAIL_PATTERN.test(trimmed)) {
     return {
       valid: false,
       normalizedEmail: trimmed,
@@ -415,16 +355,10 @@ export function validatePortalPassword(rawPassword: unknown): {
   error?: string;
 } {
   if (typeof rawPassword !== 'string' || rawPassword.length < 1) {
-    return {
-      valid: false,
-      error: 'Password is required.',
-    };
+    return { valid: false, error: 'Password is required.' };
   }
   if (rawPassword.length > 128) {
-    return {
-      valid: false,
-      error: 'Password must be 128 characters or fewer.',
-    };
+    return { valid: false, error: 'Password must be 128 characters or fewer.' };
   }
   return { valid: true };
 }
@@ -434,64 +368,27 @@ export function validateRecoveryPassword(
   confirmPassword: unknown
 ): { valid: boolean; error?: string } {
   if (typeof newPassword !== 'string' || newPassword.length < 12) {
-    return {
-      valid: false,
-      error: 'New password must be at least 12 characters.',
-    };
+    return { valid: false, error: 'New password must be at least 12 characters.' };
   }
   if (newPassword.length > 128) {
-    return {
-      valid: false,
-      error: 'Password must be 128 characters or fewer.',
-    };
+    return { valid: false, error: 'Password must be 128 characters or fewer.' };
   }
   if (newPassword !== confirmPassword) {
-    return {
-      valid: false,
-      error: 'Passwords do not match.',
-    };
+    return { valid: false, error: 'Passwords do not match.' };
   }
   return { valid: true };
 }
 
-export function verifyAuthorizedPortalCredentials(
-  rawEmail: unknown,
-  rawPassword: unknown
-):
-  | { ok: true; user: PortalSessionUser }
+/**
+ * Intentionally disabled. Authentication is server-only and must use
+ * verifyOwnerCredentials from portal-server-auth.ts. Keeping an insecure
+ * client-importable verifier would create an authentication bypass risk.
+ */
+export function verifyAuthorizedPortalCredentials():
   | { ok: false; error: string } {
-  const emailCheck = validatePortalEmail(rawEmail);
-  if (!emailCheck.valid) {
-    return { ok: false, error: emailCheck.error || 'Enter a valid email address.' };
-  }
-  const passwordCheck = validatePortalPassword(rawPassword);
-  if (!passwordCheck.valid) {
-    return { ok: false, error: passwordCheck.error || 'Password is required.' };
-  }
-
-  const passwordStr = rawPassword as string;
-  if (passwordStr.trim().length < 6) {
-    return {
-      ok: false,
-      error: 'Invalid email or password.',
-    };
-  }
-
-  const email = emailCheck.normalizedEmail;
-  let hash = 2166136261;
-  for (let i = 0; i < email.length; i++) {
-    hash ^= email.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  const uid = `bt_op_${(hash >>> 0).toString(16).padStart(8, '0')}`;
-
   return {
-    ok: true,
-    user: {
-      uid,
-      email,
-      verifiedAt: new Date().toISOString(),
-    },
+    ok: false,
+    error: 'Portal credential verification is server-only.',
   };
 }
 
@@ -499,10 +396,7 @@ export function sanitizeExternalHttpsUrl(rawUrl: string): string | null {
   if (!rawUrl || typeof rawUrl !== 'string') return null;
   try {
     const parsed = new URL(rawUrl);
-    if (parsed.protocol !== 'https:') {
-      return null;
-    }
-    if (parsed.username || parsed.password) {
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password) {
       return null;
     }
     return parsed.toString();
@@ -511,25 +405,15 @@ export function sanitizeExternalHttpsUrl(rawUrl: string): string | null {
   }
 }
 
-/**
- * Returns only explicitly approved showcase products (`visibility === 'approved_showcase'`).
- * Strips any internal Notion URLs so internal references never leak onto the public showcase.
- */
 export function getApprovedShowcaseProducts(
   items: PortalWorkspaceItem[]
 ): PortalWorkspaceItem[] {
   return items
     .filter((item) => item.visibility === 'approved_showcase')
-    .map((item) => ({
-      ...item,
-      url: '',
-    }))
+    .map((item) => ({ ...item, url: '' }))
     .sort((a, b) => a.displayOrder - b.displayOrder);
 }
 
-/**
- * Returns projects whose publication status is pending explicit owner review (`visibility === 'pending_owner_review'`).
- */
 export function getPendingOwnerReviewProjects(
   items: PortalWorkspaceItem[]
 ): PortalWorkspaceItem[] {
@@ -538,9 +422,6 @@ export function getPendingOwnerReviewProjects(
     .sort((a, b) => a.displayOrder - b.displayOrder);
 }
 
-/**
- * Returns preserved internal workspaces (`visibility === 'internal_only'`).
- */
 export function getPreservedInternalWorkspaces(
   items: PortalWorkspaceItem[]
 ): PortalWorkspaceItem[] {
@@ -549,9 +430,6 @@ export function getPreservedInternalWorkspaces(
     .sort((a, b) => a.displayOrder - b.displayOrder);
 }
 
-/**
- * Returns BLACKTOWER VAULT™ internal security subsystems (`visibility === 'vault_subsystem'`).
- */
 export function getVaultSubsystemRecords(
   items: PortalWorkspaceItem[]
 ): PortalWorkspaceItem[] {
@@ -560,9 +438,6 @@ export function getVaultSubsystemRecords(
     .sort((a, b) => a.displayOrder - b.displayOrder);
 }
 
-/**
- * Safely and reversibly updates a project's visibility status without deleting any record.
- */
 export function setProjectVisibilityInList(
   items: PortalWorkspaceItem[],
   projectId: string,
@@ -591,12 +466,9 @@ export function filterWorkspaces(
 export function savePortalSession(user: PortalSessionUser): void {
   if (typeof window === 'undefined') return;
   try {
-    window.sessionStorage.setItem(
-      PORTAL_SESSION_STORAGE_KEY,
-      JSON.stringify(user)
-    );
+    window.sessionStorage.setItem(PORTAL_SESSION_STORAGE_KEY, JSON.stringify(user));
   } catch {
-    // Ignore storage quota errors
+    // Ignore storage quota errors.
   }
 }
 
@@ -616,9 +488,7 @@ export function loadPortalSession(): PortalSessionUser | null {
         email: parsed.email,
         verifiedAt: parsed.verifiedAt,
         sessionToken:
-          typeof parsed.sessionToken === 'string'
-            ? parsed.sessionToken
-            : undefined,
+          typeof parsed.sessionToken === 'string' ? parsed.sessionToken : undefined,
       };
     }
     return null;
@@ -632,6 +502,6 @@ export function clearPortalSession(): void {
   try {
     window.sessionStorage.removeItem(PORTAL_SESSION_STORAGE_KEY);
   } catch {
-    // Ignore
+    // Ignore storage errors.
   }
 }
