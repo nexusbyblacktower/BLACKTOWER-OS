@@ -16,8 +16,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Run authentication regression tests
-        run: node --test --experimental-strip-types lib/portal/portal-auth.security.test.ts
+      - name: Run portal and security regression tests
+        run: node --test --experimental-strip-types lib/portal/*.test.ts lib/security/*.test.ts
 
   application-quality:
     runs-on: ubuntu-latest
