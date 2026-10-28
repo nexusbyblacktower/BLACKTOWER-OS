@@ -1,4 +1,5 @@
 import {
+  createHash,
   randomBytes,
   scryptSync,
   timingSafeEqual,
@@ -122,22 +123,18 @@ export function verifyOwnerCredentials(
     return { ok: false, error: 'Invalid email or password.' };
   }
 
-  const emailMatches = timingSafeEqual(
-    Buffer.from(email, 'utf8'),
-    Buffer.from(configuredEmail, 'utf8')
-  );
+  const emailDigest = createHash('sha256').update(email).digest();
+  const configuredEmailDigest = createHash('sha256')
+    .update(configuredEmail)
+    .digest();
+  const emailMatches = timingSafeEqual(emailDigest, configuredEmailDigest);
   const passwordMatches = timingSafeEqual(passwordDigest, parsed.digest);
 
   if (!emailMatches || !passwordMatches) {
     return { ok: false, error: 'Invalid email or password.' };
   }
 
-  const uidDigest = scryptSync(
-    configuredEmail,
-    parsed.salt,
-    16,
-    { N: 16_384, r: 8, p: 1, maxmem: 32 * 1024 * 1024 }
-  ).toString('hex');
+  const uidDigest = createHash('sha256').update(configuredEmail).digest('hex');
 
   return {
     ok: true,
