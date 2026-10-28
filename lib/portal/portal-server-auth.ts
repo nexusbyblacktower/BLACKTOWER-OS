@@ -13,17 +13,12 @@ const SCRYPT_KEY_LENGTH = 64;
 const SCRYPT_MAXMEM = 64 * 1024 * 1024;
 const HASH_PREFIX = 'scrypt';
 
-interface PortalAuthEnvironment {
-  PORTAL_OWNER_EMAIL?: string;
-  PORTAL_OWNER_PASSWORD_HASH?: string;
-}
+type PortalAuthEnvironment = Record<string, string | undefined>;
 
 function normalizeEmail(rawEmail: unknown): string | null {
   if (typeof rawEmail !== 'string') return null;
   const email = rawEmail.trim().toLowerCase();
-  if (!email || email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return null;
-  }
+  if (!email || email.length > 255 || !/^\S+@\S+\.\S+$/.test(email)) return null;
   return email;
 }
 
@@ -124,9 +119,7 @@ export function verifyOwnerCredentials(
   }
 
   const emailDigest = createHash('sha256').update(email).digest();
-  const configuredEmailDigest = createHash('sha256')
-    .update(configuredEmail)
-    .digest();
+  const configuredEmailDigest = createHash('sha256').update(configuredEmail).digest();
   const emailMatches = timingSafeEqual(emailDigest, configuredEmailDigest);
   const passwordMatches = timingSafeEqual(passwordDigest, parsed.digest);
 
