@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyOwnerCredentials } from '@/lib/portal/portal-server-auth';
+import { portalLoginRateLimiter } from '@/lib/security/portal-rate-limit';
 import {
   issueSignedPortalSessionToken,
   resolvePortalSigningSecret,
 } from '@/lib/portal/portal-server-session';
 import { isDatabaseConfigured } from '../../../../src/db/index';
 import { getOrCreateUser } from '../../../../src/db/users';
+
+function getClientIp(req: NextRequest): string {
+  const forwarded = req.headers.get('x-forwarded-for');
+  if (forwarded) {
+    const first = forwarded.split(',')[0]?.trim();
+    if (first) return first.slice(0, 128);
+  }
+  return (req.headers.get('x-real-ip') || 'unknown').slice(0, 128);
+}
 
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
@@ -44,6 +54,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const emailKey =
+    typeof body.email === 'string' ? body.email.trim().toLowerCase() : 'invalid-email';
+  const rateLimitKey = `${getClientIp(req)}:${emailKey}`;
+  const rateLimit = portalLoginRateLimiter.check(rateLimitKey);
+  if (!rateLimit.allowed) {
+    const response = NextResponse.json(
+      {
+        error: 'AUTH_RATE_LIMITED',
+        message: 'Too many authentication attempts. Please wait before trying again.',
+      },
+      { status: 429 }
+    );
+    response.headers.set('Retry-After', String(rateLimit.retryAfterSeconds));
+    return response;
+  }
+
   let signingSecret: string;
   try {
     signingSecret = resolvePortalSigningSecret(process.env);
@@ -62,6 +88,8 @@ export async function POST(req: NextRequest) {
   if (!verified.ok) {
     return NextResponse.json({ error: verified.error }, { status: 401 });
   }
+
+  portalLoginRateLimiter.clear(rateLimitKey);
 
   if (isDatabaseConfigured()) {
     try {
