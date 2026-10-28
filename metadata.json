@@ -1,0 +1,6 @@
+{
+  "name": "BLACKTOWER VAULT™",
+  "description": "Security-first, zero-knowledge personal password and digital identity vault with four-tier AES-256-GCM & Argon2id key hierarchy.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
