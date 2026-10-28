@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  validatePortalEmail,
-  verifyAuthorizedPortalCredentials,
-} from '@/lib/portal/portal-auth';
+import { verifyOwnerCredentials } from '@/lib/portal/portal-server-auth';
+import { portalLoginRateLimiter } from '@/lib/security/portal-rate-limit';
 import {
   issueSignedPortalSessionToken,
   resolvePortalSigningSecret,
 } from '@/lib/portal/portal-server-session';
 import { isDatabaseConfigured } from '../../../../src/db/index';
 import { getOrCreateUser } from '../../../../src/db/users';
+
+function getClientIp(req: NextRequest): string {
+  const forwarded = req.headers.get('x-forwarded-for');
+  if (forwarded) {
+    const first = forwarded.split(',')[0]?.trim();
+    if (first) return first.slice(0, 128);
+  }
+  return (req.headers.get('x-real-ip') || 'unknown').slice(0, 128);
+}
 
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
@@ -22,13 +29,14 @@ export async function POST(req: NextRequest) {
   }
 
   const mode = typeof body.mode === 'string' ? body.mode : 'signin';
+  const secureCookie = process.env.NODE_ENV === 'production';
 
   if (mode === 'signout') {
     const res = NextResponse.json({ status: 'SIGNED_OUT' }, { status: 200 });
     res.cookies.set('bt_os_session', '', {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none',
+      secure: secureCookie,
+      sameSite: 'lax',
       path: '/',
       maxAge: 0,
     });
@@ -36,21 +44,32 @@ export async function POST(req: NextRequest) {
   }
 
   if (mode === 'recover') {
-    const emailCheck = validatePortalEmail(body.email);
-    if (!emailCheck.valid) {
-      return NextResponse.json({ error: emailCheck.error }, { status: 400 });
-    }
     return NextResponse.json(
       {
-        status: 'RECOVERY_SENT',
+        error: 'PASSWORD_RECOVERY_NOT_CONFIGURED',
         message:
-          'If this email belongs to an authorized account, a recovery link will arrive shortly.',
+          'Password recovery is disabled until a verified recovery provider is configured. No recovery message was sent.',
       },
-      { status: 200 }
+      { status: 501 }
     );
   }
 
-  // Fail closed if PORTAL_SIGNING_SECRET is missing or invalid
+  const emailKey =
+    typeof body.email === 'string' ? body.email.trim().toLowerCase() : 'invalid-email';
+  const rateLimitKey = `${getClientIp(req)}:${emailKey}`;
+  const rateLimit = portalLoginRateLimiter.check(rateLimitKey);
+  if (!rateLimit.allowed) {
+    const response = NextResponse.json(
+      {
+        error: 'AUTH_RATE_LIMITED',
+        message: 'Too many authentication attempts. Please wait before trying again.',
+      },
+      { status: 429 }
+    );
+    response.headers.set('Retry-After', String(rateLimit.retryAfterSeconds));
+    return response;
+  }
+
   let signingSecret: string;
   try {
     signingSecret = resolvePortalSigningSecret(process.env);
@@ -59,23 +78,24 @@ export async function POST(req: NextRequest) {
       {
         error: 'PORTAL_AUTH_CONFIG_MISSING',
         message:
-          'Portal authentication is unavailable because PORTAL_SIGNING_SECRET is not configured on the server.',
+          'Portal authentication is unavailable because the required server authentication configuration is missing.',
       },
       { status: 503 }
     );
   }
 
-  const verified = verifyAuthorizedPortalCredentials(body.email, body.password);
+  const verified = verifyOwnerCredentials(body.email, body.password, process.env);
   if (!verified.ok) {
     return NextResponse.json({ error: verified.error }, { status: 401 });
   }
 
-  // Upsert operator identity into Neon PostgreSQL users table (zero password material stored)
+  portalLoginRateLimiter.clear(rateLimitKey);
+
   if (isDatabaseConfigured()) {
     try {
       await getOrCreateUser(verified.user.uid, verified.user.email);
     } catch {
-      // Fail gracefully if DB connection is warming up; never leak SQL internals
+      // Authentication remains valid; database internals are never disclosed.
     }
   }
 
@@ -97,8 +117,8 @@ export async function POST(req: NextRequest) {
 
   response.cookies.set('bt_os_session', sessionToken, {
     httpOnly: true,
-    secure: true,
-    sameSite: 'none',
+    secure: secureCookie,
+    sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 12,
   });
