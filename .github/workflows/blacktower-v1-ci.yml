@@ -1,0 +1,38 @@
+name: BLACKTOWER OS V1 CI
+
+on:
+  push:
+    branches:
+      - feat/blacktower-os-v1
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  auth-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run portal and security regression tests
+        run: node --test --experimental-strip-types lib/portal/*.test.ts lib/security/*.test.ts
+
+  application-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: TypeScript check
+        run: npx tsc --noEmit
+      - name: ESLint
+        run: npm run lint
+      - name: Production build
+        run: npm run build

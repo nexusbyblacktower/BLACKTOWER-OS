@@ -14,12 +14,18 @@ import {
   validatePortalEmail,
   validatePortalPassword,
   validateRecoveryPassword,
-  verifyAuthorizedPortalCredentials,
 } from './portal-auth.ts';
+import { verifyOwnerCredentials } from './portal-server-auth.ts';
 import {
   issueSignedPortalSessionToken,
   verifySignedPortalSessionToken,
 } from './portal-server-session.ts';
+
+const TEST_OWNER_ENV = {
+  PORTAL_OWNER_EMAIL: 'ops@blacktower.io',
+  PORTAL_OWNER_PASSWORD_HASH:
+    'scrypt$32768$8$1$YmxhY2t0b3dlci10ZXN0LXNhbHQtMjAyNg$Fx-BoLFvyMQTmCEngaqeofSoVP6iWrEk9V7YlZKqGb-gXhcNt6nUWOWMVVK2-75gLXX6kztbwcHv9gYyTDQVdg',
+};
 
 test('validatePortalEmail trims, lowercases, and rejects malformed addresses', () => {
   const valid = validatePortalEmail('  Operator@Blacktower.io  ');
@@ -51,13 +57,21 @@ test('validateRecoveryPassword enforces minimum 12 chars and matching confirmati
   );
 });
 
-test('verifyAuthorizedPortalCredentials rejects invalid/short passwords and accepts valid operator credentials', () => {
-  const rejected = verifyAuthorizedPortalCredentials('ops@blacktower.io', '123');
+test('server-side owner credentials reject invalid passwords and accept the configured credential', () => {
+  const rejected = verifyOwnerCredentials('ops@blacktower.io', '123', TEST_OWNER_ENV);
   assert.equal(rejected.ok, false);
 
-  const accepted = verifyAuthorizedPortalCredentials(
+  const wrong = verifyOwnerCredentials(
     'ops@blacktower.io',
-    'BlacktowerCommand2026!'
+    'definitely-not-the-owner-password',
+    TEST_OWNER_ENV
+  );
+  assert.equal(wrong.ok, false);
+
+  const accepted = verifyOwnerCredentials(
+    'OPS@BLACKTOWER.IO',
+    'test-password-123456',
+    TEST_OWNER_ENV
   );
   assert.equal(accepted.ok, true);
   if (accepted.ok) {
@@ -87,7 +101,6 @@ test('Showcase architecture: BLACKTOWER VAULT is the sole approved showcase prod
   const internalOnly = getPreservedInternalWorkspaces(PORTAL_WORKSPACES);
   const subsystems = getVaultSubsystemRecords(PORTAL_WORKSPACES);
 
-  // 1. BLACKTOWER VAULT™ is the ONLY approved public showcase project
   assert.equal(showcase.length, 1);
   assert.equal(showcase[0].id, 'blacktower-vault');
   assert.equal(showcase[0].name, 'BLACKTOWER VAULT™');
@@ -99,7 +112,6 @@ test('Showcase architecture: BLACKTOWER VAULT is the sole approved showcase prod
   assert.equal(showcase[0].internalRoute, '/vault');
   assert.equal(showcase[0].url, '');
 
-  // 2. Subsystems of BLACKTOWER VAULT™ are NOT promoted as independent showcase products
   assert.equal(subsystems.length, 3);
   assert.ok(
     subsystems.every(
@@ -109,7 +121,6 @@ test('Showcase architecture: BLACKTOWER VAULT is the sole approved showcase prod
     )
   );
 
-  // 3. Future projects are preserved under pending_owner_review (not marked completed or public)
   assert.equal(pendingReview.length, 2);
   assert.ok(
     pendingReview.every(
@@ -120,7 +131,6 @@ test('Showcase architecture: BLACKTOWER VAULT is the sole approved showcase prod
     )
   );
 
-  // 4. Internal Notion workspaces are preserved under internal_only
   assert.equal(internalOnly.length, 5);
   assert.ok(
     internalOnly.every(
@@ -131,7 +141,6 @@ test('Showcase architecture: BLACKTOWER VAULT is the sole approved showcase prod
     )
   );
 
-  // 5. Internal Vault capability descriptors clearly distinguish PRODUCT FEATURE, SECURITY SUBSYSTEM, and ENGINEERING TEST
   assert.equal(BLACKTOWER_VAULT_INTERNAL_CAPABILITIES.length, 5);
 });
 
@@ -168,23 +177,18 @@ test('Server-side HMAC-SHA256 session token signing and verification reject tamp
     assert.equal(verified.email, 'blackmaster.blacktower@blacktowermail.com');
   }
 
-  // Reject wrong secret
-  const wrongSecret = verifySignedPortalSessionToken(token, 'wrong-secret');
-  assert.equal(wrongSecret.valid, false);
+  assert.equal(verifySignedPortalSessionToken(token, 'wrong-secret').valid, false);
 
-  // Reject tampered token payload
   const [payloadB64, sigHex] = token.split('.');
   const tamperedToken = `${payloadB64}a.${sigHex}`;
   assert.equal(verifySignedPortalSessionToken(tamperedToken, secret).valid, false);
 
-  // Reject expired token
   const expiredToken = issueSignedPortalSessionToken(
     { uid: 'bt_op_12345678', email: 'blackmaster.blacktower@blacktowermail.com' },
     secret,
     -10
   );
-  const expiredCheck = verifySignedPortalSessionToken(expiredToken, secret);
-  assert.equal(expiredCheck.valid, false);
+  assert.equal(verifySignedPortalSessionToken(expiredToken, secret).valid, false);
 });
 
 test('filterWorkspaces filters by name, tagline, description, and category case-insensitively', () => {

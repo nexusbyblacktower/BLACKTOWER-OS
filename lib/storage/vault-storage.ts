@@ -36,19 +36,16 @@ export interface PersistedEncryptedVaultStore {
     devices: SyncDeviceMetadata[];
   };
   settings: {
-    autoLockTimeoutSeconds: number; // e.g., 60, 300, 900
+    autoLockTimeoutSeconds: number;
     clipboardClearSeconds: 20 | 30 | 60;
     lockOnBackgroundHide: boolean;
-    extremeScreenProtection: boolean; // ON by default per Section 6 & 19
+    extremeScreenProtection: boolean;
     developerDiagnosticsMode: boolean;
     recoveryKeyVerifiedAt: string | null;
     lastBackupExportedAt: string | null;
   };
 }
 
-/**
- * Validates that a store object contains zero forbidden plaintext fields before persisting.
- */
 export function assertStoreZeroPlaintext(store: PersistedEncryptedVaultStore): void {
   const check = inspectPayloadForPlaintextSecrets({
     hierarchy: store.hierarchy,
@@ -122,7 +119,11 @@ export function wipeEncryptedVaultStore(): void {
   window.localStorage.removeItem(STORAGE_KEY_V1);
 }
 
-const INITIAL_SAMPLE_ITEMS: Array<{
+/**
+ * Synthetic development-only records. They contain no real credentials,
+ * identities, payment data, or infrastructure secrets.
+ */
+const SYNTHETIC_DEMO_ITEMS: Array<{
   recordType: VaultRecordType;
   favorite: boolean;
   payload: DecryptedVaultItemPayload;
@@ -131,101 +132,77 @@ const INITIAL_SAMPLE_ITEMS: Array<{
     recordType: 'password',
     favorite: true,
     payload: {
-      title: 'Cloudflare Zero Trust Root Console',
-      subtitle: 'secops-admin@blacktower.internal',
-      folder: 'Infrastructure',
-      username: 'secops-admin@blacktower.internal',
-      password: 'Bt9#vK2!mQ8$pL5@xR4&zN7*wC1',
-      url: 'https://one.dash.cloudflare.com',
-      totpSecret: 'JBSWY3DPEHPK3PXP',
-      noteContent: 'Primary infrastructure DNS & hardware-key enforced root console.',
-    },
-  },
-  {
-    recordType: 'password',
-    favorite: true,
-    payload: {
-      title: 'GitHub Enterprise Signing Org',
-      subtitle: 'k.vance@blacktower.io',
-      folder: 'Engineering',
-      username: 'k.vance@blacktower.io',
-      password: 'Gh7$wP9#nL3@qX5!vB8&mK2*rT6',
-      url: 'https://github.com/enterprises/blacktower',
-      totpSecret: 'KRSXG5CTMVRXEZLU',
-      noteContent: 'Commit signing authority and release verification account.',
+      title: 'DEMO — Example Service',
+      subtitle: 'demo@example.invalid',
+      folder: 'DEMO ONLY',
+      username: 'demo@example.invalid',
+      password: 'DEMO_NOT_A_REAL_PASSWORD_2026',
+      url: 'https://example.invalid',
+      totpSecret: 'DEMO_NOT_A_REAL_TOTP_SECRET',
+      noteContent: 'Synthetic development fixture. Never use for real authentication.',
     },
   },
   {
     recordType: 'note',
-    favorite: true,
+    favorite: false,
     payload: {
-      title: 'Cold Storage HSM Quorum Protocol',
-      subtitle: 'Offline air-gapped key ceremony procedure',
-      folder: 'Security Protocols',
-      noteContent:
-        'Quorum requires 3-of-5 physical YubiKey HSM shards located in Zurich, Singapore, and Reykjavik vaults. Never initialize reconstruction on network-attached hardware.',
+      title: 'DEMO — Security Procedure',
+      subtitle: 'Synthetic test note',
+      folder: 'DEMO ONLY',
+      noteContent: 'Synthetic development fixture. Contains no operational security material.',
     },
   },
   {
     recordType: 'identity',
     favorite: false,
     payload: {
-      title: 'Diplomatic & Sovereign Travel Identity',
-      subtitle: 'Kieran Vance · Passport #CH-9948102',
-      folder: 'Personal Identity',
-      fullName: 'Kieran Vance',
-      email: 'kieran.vance@proton.me',
-      phone: '+41 44 580 29 10',
-      passportOrIdNumber: 'CH-9948102-Z',
-      address: 'Bahnhofstrasse 42, 8001 Zürich, Switzerland',
-      noteContent: 'Primary biometric passport and tax residency registration.',
+      title: 'DEMO — Synthetic Identity',
+      subtitle: 'Example Person · ID-DEMO-0000',
+      folder: 'DEMO ONLY',
+      fullName: 'Example Person',
+      email: 'demo@example.invalid',
+      phone: '+60 00-000 0000',
+      passportOrIdNumber: 'DEMO-ID-0000',
+      address: 'DEMO ADDRESS — NOT REAL',
+      noteContent: 'Synthetic development fixture. Not a real identity.',
     },
   },
   {
     recordType: 'card',
     favorite: false,
     payload: {
-      title: 'Swiss Corporate Treasury Visa Infinite',
-      subtitle: '•••• 8842 · Exp 09/29',
-      folder: 'Financial',
-      cardholderName: 'KIERAN VANCE',
-      cardNumber: '4532 8910 4421 8842',
-      cardExpiry: '09/29',
-      cardCvv: '739',
-      cardPin: '8492',
-      noteContent: 'Dedicated hardware procurement and cloud infrastructure settlement card.',
+      title: 'DEMO — Synthetic Payment Card',
+      subtitle: '•••• 0000 · Exp 01/30',
+      folder: 'DEMO ONLY',
+      cardholderName: 'EXAMPLE PERSON',
+      cardNumber: '0000 0000 0000 0000',
+      cardExpiry: '01/30',
+      cardCvv: '000',
+      cardPin: '0000',
+      noteContent: 'Synthetic development fixture. Never use for payments.',
     },
   },
   {
     recordType: 'custom',
     favorite: false,
     payload: {
-      title: 'WireGuard Core Mesh Private Key',
-      subtitle: 'wg0-zurich-core01.blacktower.net',
-      folder: 'Cryptography',
+      title: 'DEMO — Synthetic Private Key',
+      subtitle: 'demo.example.invalid',
+      folder: 'DEMO ONLY',
       customFields: [
-        { label: 'Interface Address', value: '10.99.0.1/24', sensitive: false },
-        { label: 'Endpoint', value: '185.220.101.4:51820', sensitive: false },
+        { label: 'Interface Address', value: '192.0.2.1/32', sensitive: false },
+        { label: 'Endpoint', value: '198.51.100.1:51820', sensitive: false },
         {
-          label: 'Curve25519 Private Key',
-          value: 'cG9sYXJpc19zero_knowledge_wireguard_key_9981234==',
-          sensitive: true,
-        },
-        {
-          label: 'Preshared Key (PSK)',
-          value: 'psk_88492019482716253490128374651928==',
+          label: 'Synthetic Private Key',
+          value: 'DEMO_NOT_A_REAL_PRIVATE_KEY',
           sensitive: true,
         },
       ],
-      noteContent: 'Rotated every 30 days via automated ephemeral tunnel daemon.',
+      noteContent: 'Synthetic development fixture. Not usable cryptographic material.',
     },
   },
 ];
 
-/**
- * Provisions a new encrypted vault with the 4-tier hierarchy and encrypts starter records
- * so every record persisted on disk is genuine AES-256-GCM ciphertext.
- */
 export async function provisionNewEncryptedVault(params: {
   masterPassword: string;
   includeSampleItems?: boolean;
@@ -240,8 +217,9 @@ export async function provisionNewEncryptedVault(params: {
   });
 
   const encryptedItems: EncryptedVaultItemEnvelope[] = [];
-  if (params.includeSampleItems !== false) {
-    for (const sample of INITIAL_SAMPLE_ITEMS) {
+  // Demo fixtures are opt-in. Production provisioning is empty by default.
+  if (params.includeSampleItems === true) {
+    for (const sample of SYNTHETIC_DEMO_ITEMS) {
       const env = await encryptVaultItem({
         keyring,
         recordType: sample.recordType,
@@ -276,10 +254,10 @@ export async function provisionNewEncryptedVault(params: {
       ],
     },
     settings: {
-      autoLockTimeoutSeconds: 300, // 5 minutes default
-      clipboardClearSeconds: 20, // 20 seconds default per constitution
-      lockOnBackgroundHide: true, // Preferred extreme mode: LOCK VAULT WHEN BACKGROUNDED
-      extremeScreenProtection: true, // EXTREME SCREEN PROTECTION ON by default
+      autoLockTimeoutSeconds: 300,
+      clipboardClearSeconds: 20,
+      lockOnBackgroundHide: true,
+      extremeScreenProtection: true,
       developerDiagnosticsMode: false,
       recoveryKeyVerifiedAt: null,
       lastBackupExportedAt: null,
